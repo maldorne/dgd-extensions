@@ -316,6 +316,16 @@ static int jit_init(int major, int minor, size_t intSize, size_t inheritSize,
     JitInfo info;
     bool result;
 
+    MUTEX_INIT(&lock);
+# ifdef LARGENUM
+    if (intSize != 8)
+# else
+    if (intSize == 8)
+# endif
+    {
+	return false;
+    }
+
     /*
      * pass information to the JIT compiler backend
      */
@@ -340,7 +350,6 @@ static int jit_init(int major, int minor, size_t intSize, size_t inheritSize,
     /*
      * create loader thread
      */
-    MUTEX_INIT(&lock);
     active = true;
     THREAD_START(&jit_thread);
 
@@ -353,7 +362,9 @@ static int jit_init(int major, int minor, size_t intSize, size_t inheritSize,
  */
 static void jit_finish(void)
 {
-    THREAD_STOP();
+    if (active) {
+	THREAD_STOP();
+    }
     MUTEX_DESTROY(&lock);
 }
 

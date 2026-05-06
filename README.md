@@ -1,3 +1,25 @@
+## Maldorne fork
+
+This is a fork of [`dworkin/lpc-ext`](https://github.com/dworkin/lpc-ext)
+maintained by [Maldorne](https://github.com/maldorne) for the
+[Hexagon mudlib](https://github.com/maldorne/hexagon).  The substantive
+addition with respect to upstream is:
+
+  * **`src/kfun/sprintf/`** — native C `sprintf` kfun.  Implements the
+    LPC `sprintf` contract (conversion characters, flags, width and
+    precision) with width and padding computed in *visible* columns so
+    ANSI escape sequences and UTF-8 multibyte characters do not inflate
+    the field.  The full contract and limitations are documented in
+    `src/kfun/sprintf/readme.md`.  Build with `make sprintf`.
+
+There are also a handful of minor differences not worth detailing:
+build-target glue in `src/Makefile`, a `.gitignore` for build artefacts,
+and the removal of upstream's Visual Studio solution and project files
+(the fork tracks Linux/macOS builds only).  Documentation below is
+from the upstream README.
+
+---
+
 The overaching license for the LPC extensions is the Unlicense.  Some modules
 or portions thereof in the `src/kfun` directory have their own open source
 license; please consult the relevant code for the details.

@@ -26,6 +26,8 @@ crypto:	../crypto.$(EXT)
 
 tls:	../tls.$(EXT)
 
+sprintf:	../sprintf.$(EXT)
+
 lpc_ext.o:	lpc_ext.c lpc_ext.h
 	$(CC) -o $@ -c $(CFLAGS) -I. lpc_ext.c
 
@@ -33,6 +35,12 @@ kfun/lower_case.o:	kfun/lower_case.c lpc_ext.h
 	$(CC) -o $@ -c $(CFLAGS) -I. kfun/lower_case.c
 
 ../lower_case.$(EXT):	kfun/lower_case.o $(OBJ)
+	$(LD) -o $@ $(LDFLAGS) $+
+
+kfun/sprintf/sprintf.o:	kfun/sprintf/sprintf.c lpc_ext.h
+	$(CC) -o $@ -c $(CFLAGS) -I. kfun/sprintf/sprintf.c
+
+../sprintf.$(EXT):	kfun/sprintf/sprintf.o $(OBJ)
 	$(LD) -o $@ $(LDFLAGS) $+
 
 kfun/rgx/regexp.o:	kfun/rgx/regexp.c lpc_ext.h
@@ -81,5 +89,6 @@ kfun/tls/tls.o:	kfun/tls/tls.c lpc_ext.h
 clean:
 	rm -f ../lower_case.$(EXT) ../regexp.$(EXT) ../zlib.$(EXT) \
 	      ../jit.$(EXT) ../dbase.$(EXT) ../crypto.$(EXT) ../tls.$(EXT) \
+	      ../sprintf.$(EXT) \
 	      *.o kfun/*.o kfun/*/*.o dbase/*.o
 	$(MAKE) -C jit clean

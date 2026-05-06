@@ -16,7 +16,7 @@ LIBLIB=	kfun/rgx/libiberty
 ZLIB=	1.2.13			# 1.2.8, 1.2.11, 1.2.12, 1.2.13, 1.3, 1.3.1
 ZLIBDIR=1.2.12			# 1.2.8, 1.2.11, 1.2.12+
 
-all:	../lower_case.$(EXT) ../regexp.$(EXT) ../dbase.$(EXT) ../hexagon_test.$(EXT)
+all:	../lower_case.$(EXT) ../regexp.$(EXT) ../dbase.$(EXT)
 
 jit:	../jit.$(EXT)
 
@@ -29,16 +29,10 @@ tls:	../tls.$(EXT)
 lpc_ext.o:	lpc_ext.c lpc_ext.h
 	$(CC) -o $@ -c $(CFLAGS) -I. lpc_ext.c
 
-kfun/hexagon_test.o:	kfun/hexagon_test.c lpc_ext.h
-	$(CC) -o $@ -c $(CFLAGS) -I. kfun/hexagon_test.c
-
 kfun/lower_case.o:	kfun/lower_case.c lpc_ext.h
 	$(CC) -o $@ -c $(CFLAGS) -I. kfun/lower_case.c
 
 ../lower_case.$(EXT):	kfun/lower_case.o $(OBJ)
-	$(LD) -o $@ $(LDFLAGS) $+
-
-../hexagon_test.$(EXT):	kfun/hexagon_test.o $(OBJ)
 	$(LD) -o $@ $(LDFLAGS) $+
 
 kfun/rgx/regexp.o:	kfun/rgx/regexp.c lpc_ext.h
@@ -85,8 +79,7 @@ kfun/tls/tls.o:	kfun/tls/tls.c lpc_ext.h
 	$(LD) -o $@ $(LDFLAGS) $+ -lssl
 
 clean:
-	rm -f ../hexagon_test.$(EXT) \
-	      ../lower_case.$(EXT) ../regexp.$(EXT) ../zlib.$(EXT) \
+	rm -f ../lower_case.$(EXT) ../regexp.$(EXT) ../zlib.$(EXT) \
 	      ../jit.$(EXT) ../dbase.$(EXT) ../crypto.$(EXT) ../tls.$(EXT) \
 	      *.o kfun/*.o kfun/*/*.o dbase/*.o
 	$(MAKE) -C jit clean

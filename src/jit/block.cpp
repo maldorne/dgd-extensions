@@ -161,8 +161,8 @@ Block *Block::split(CodeSize addr)
 	}
 
 	/* split block */
-	size = last->next->addr - b->first->addr;
-	n = produce(last->next, b->last, b->size - size);
+	size = addr - b->first->addr;
+	n = produce(code, b->last, b->size - size);
 	n->next = b->next;
 	n->to = b->to;
 	n->nTo = b->nTo;

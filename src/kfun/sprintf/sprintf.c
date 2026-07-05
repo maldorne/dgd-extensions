@@ -163,7 +163,10 @@ static int advance_margin(int margin, const char *s, int len) {
     for (i = 0; i < len; i++) {
         unsigned char b = (unsigned char)s[i];
 
-        if (b == '\n') { margin = 0; continue; }
+        /* Matches LPC packages/sprintf.c which counts newlines as
+         * literal characters via strlen(chunk, true). The extra
+         * column of indent that produces on continuation lines is
+         * the LPC visual authors have relied on for years. */
 
         if (b == 27) {
             if (i + 1 < len && s[i + 1] == '[') {
@@ -345,6 +348,22 @@ static int multi_line(Buf *out, const char *src, int srclen,
 
         word_start = i;
         piece_first = 1;
+
+        /* Preserve the leading whitespace of the FIRST input line
+         * verbatim — the LPC packages/sprintf.c splits by ' ' with
+         * full_explode and emits each empty piece as a separator
+         * space, effectively pushing the first content column right
+         * by the number of leading spaces. Authors have relied on
+         * this to indent the opening line of a paragraph deeper
+         * than the hanging-indent continuation. */
+        if (line_first) {
+            while (word_start < line_end && src[word_start] == ' ') {
+                buf_append_byte(out, ' ');
+                line_w++;
+                word_start++;
+            }
+        }
+
         while (word_start < line_end) {
             int wlen, wvis;
 
@@ -414,6 +433,7 @@ static int multi_line(Buf *out, const char *src, int srclen,
         if (line_end < srclen) {
             buf_append_byte(out, '\n');
         }
+        line_first = 0;
         i = line_end + 1;
         line_first = 0;
     }

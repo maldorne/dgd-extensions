@@ -144,6 +144,49 @@ static int buf_append_pad(Buf *b, int n, const char *pad, int padlen) {
  *  the rationale and limitations.
  * ============================================================ */
 
+/* ============================================================
+ *  advance_margin: track visible column since last newline
+ *
+ *  Used by format_string to give every %s (and friends) a `margin`
+ *  equal to the visible width of all format-string literal chunks
+ *  emitted since the last '\n'. multi_line uses that margin to
+ *  hang-indent every wrapped continuation line so it column-aligns
+ *  with the first line of the field.
+ *
+ *  Matches the LPC packages/sprintf.c behaviour: `margin` accumulates
+ *  the length of literal chunks between the start (or the last '\n')
+ *  and the current directive.
+ * ============================================================ */
+
+static int advance_margin(int margin, const char *s, int len) {
+    int i;
+    for (i = 0; i < len; i++) {
+        unsigned char b = (unsigned char)s[i];
+
+        if (b == '\n') { margin = 0; continue; }
+
+        if (b == 27) {
+            if (i + 1 < len && s[i + 1] == '[') {
+                i += 2;
+                while (i < len) {
+                    unsigned char c = (unsigned char)s[i];
+                    if (c >= 0x40 && c <= 0x7E) break;
+                    i++;
+                }
+            }
+            continue;
+        }
+
+        if (b >= 0xC2 && b <= 0xDF) { i += 1; margin++; continue; }
+        if (b >= 0xE0 && b <= 0xEF) { i += 2; margin++; continue; }
+        if (b >= 0xF0 && b <= 0xF7) { i += 3; margin++; continue; }
+        if (b >= 0x80 && b <= 0xBF) continue;
+
+        margin++;
+    }
+    return margin;
+}
+
 static int vis_width(const char *s, int len) {
     int i, w = 0;
     for (i = 0; i < len; i++) {
@@ -850,7 +893,8 @@ static int format_one(Buf *out, char conv,
                       int flags, int width, int precision,
                       LPC_frame f, int nargs, int argi,
                       const char **padding, int *padlen,
-                      Buf *result_so_far_for_n) {
+                      Buf *result_so_far_for_n,
+                      int margin) {
     LPC_value v;
     LPC_dataspace data = lpc_frame_dataspace(f);
 
@@ -899,10 +943,10 @@ static int format_one(Buf *out, char conv,
 
         if ((flags & F_TABLE) && conv == 's') {
             table_mode(out, text, len, width, precision, flags,
-                       *padding, *padlen, 0);
+                       *padding, *padlen, margin);
         } else {
             align(out, text, len, width, precision, flags,
-                  *padding, *padlen, 0);
+                  *padding, *padlen, margin);
         }
         return argi + 1;
     }
@@ -913,10 +957,10 @@ static int format_one(Buf *out, char conv,
         str = lpc_string_getval(v);
         if (flags & F_TABLE) {
             table_mode(out, lpc_string_text(str), lpc_string_length(str),
-                       width, precision, flags, *padding, *padlen, 0);
+                       width, precision, flags, *padding, *padlen, margin);
         } else {
             align(out, lpc_string_text(str), lpc_string_length(str),
-                  width, precision, flags, *padding, *padlen, 0);
+                  width, precision, flags, *padding, *padlen, margin);
         }
         return argi + 1;
     }
@@ -957,7 +1001,7 @@ static int format_one(Buf *out, char conv,
                 return -1;
             }
             align(out, text, len, width, precision, flags,
-                  *padding, *padlen, 0);
+                  *padding, *padlen, margin);
         }
         return argi + 1;
     }
@@ -992,7 +1036,7 @@ static int format_one(Buf *out, char conv,
         if (!typecheck(v, LPC_TYPE_INT, f, "sprintf: %%c expects int")) return -1;
         ch = (char)lpc_int_getval(v);
         align(out, &ch, 1, width, precision, flags,
-              *padding, *padlen, 0);
+              *padding, *padlen, margin);
         return argi + 1;
     }
 
@@ -1053,7 +1097,7 @@ static int format_one(Buf *out, char conv,
             buf_append(&hex, hb, 2);
         }
         align(out, hex.data, hex.len, width, precision, flags,
-              *padding, *padlen, 0);
+              *padding, *padlen, margin);
         buf_free(&hex);
         return argi + 1;
     }
@@ -1126,7 +1170,7 @@ static int format_one(Buf *out, char conv,
         buf_init(&scratch);
         anything_into(&scratch, v, f, 0);
         align(out, scratch.data, scratch.len, width, precision, flags,
-              *padding, *padlen, 0);
+              *padding, *padlen, margin);
         buf_free(&scratch);
         return argi + 1;
     }
@@ -1145,12 +1189,19 @@ static void format_string(Buf *out, const char *fmt, int fmtlen,
     int argi = 1; /* arg 0 is the format string */
     const char *padding = " ";
     int padlen = 1;
+    /* Visible width of literal chunks emitted since the last '\n' in
+     * the format string. Reset on newline, otherwise accumulated. Fed
+     * to every %s (and friends) so multi_line can hang-indent wrapped
+     * continuation lines to column-align with the first line of the
+     * field. Matches the LPC packages/sprintf.c margin convention. */
+    int margin = 0;
 
     while (p < end) {
         if (*p != '%' && *p != '@') {
             const char *start = p;
             while (p < end && *p != '%' && *p != '@') p++;
             buf_append(out, start, (int)(p - start));
+            margin = advance_margin(margin, start, (int)(p - start));
             continue;
         }
 
@@ -1233,7 +1284,8 @@ static void format_string(Buf *out, const char *fmt, int fmtlen,
 
             conv = *p++;
             argi = format_one(out, conv, flags, width, precision,
-                              f, nargs, argi, &padding, &padlen, out);
+                              f, nargs, argi, &padding, &padlen, out,
+                              margin);
             if (argi < 0) return; /* runtime error already raised */
         }
     }
